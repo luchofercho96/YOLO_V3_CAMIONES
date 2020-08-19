@@ -1,3 +1,4 @@
+from imutils.video import FPS
 from threading import Thread
 import time
 import cv2 as cv
@@ -8,6 +9,8 @@ from numpy.linalg import inv
 
 ## lectura de los datos de la red neurona;
 net = cv.dnn.readNet('yolov3_training_last.weights', 'yolov3_testing.cfg')
+net.setPreferableBackend(cv.dnn.DNN_BACKEND_CUDA)
+net.setPreferableTarget(cv.dnn.DNN_TARGET_CUDA)
 classes = []
 with open("classes.txt", "r") as f:
     classes = f.read().splitlines()
@@ -27,8 +30,10 @@ recta2x=[]
 distancia1=[]
 distancia2=[]
 #'rtsp://admin:precision00@192.168.1.64:554/Video/Channels/101/'
+fps = FPS().start()
 class VideoStreamWidget(object):
-    def __init__(self, src='rtsp://admin:precision00@192.168.1.64:554/Video/Channels/101/'):
+    def __init__(self, src=0):
+
         self.capture = cv.VideoCapture(src)
         # Start the thread to read frames from the video stream
         self.thread = Thread(target=self.update, args=())
@@ -175,17 +180,17 @@ class VideoStreamWidget(object):
                 cv.putText(procesamiento_l,"rueda "+str(i),(ubicacion[i][0],ubicacion[i][1]) , font, 1, (255,0,0),1,cv.LINE_AA)
             ERRORES_TOTALES=[]
             for i in range(0,ubicacion.shape[0]):
-                print(i)
+                #print(i)
                 err_x_linea1=-(recta1_final[0][minimos1_final[i]]-ubicacion[i][0])
                 err_y_linea1=recta1_final[1][minimos1_final[i]]-ubicacion[i][1]
                 err_x_linea2=(recta2_final[0][minimos2_final[i]]-ubicacion[i][0])
                 err_y_linea2=recta2_final[1][minimos2_final[i]]-ubicacion[i][1]
                 ERRORES_TOTALES.append([err_x_linea1,err_y_linea1,err_x_linea2,err_y_linea2])
-                print("------------------")
-                print(err_x_linea2,err_x_linea1,err_y_linea1,err_y_linea2)
-                print("--------------------")
+                #print("------------------")
+                #print(err_x_linea2,err_x_linea1,err_y_linea1,err_y_linea2)
+                #print("--------------------")
             ERRORES_FINALES=np.array(ERRORES_TOTALES).reshape(ubicacion.shape[0],4)
-            print(ERRORES_FINALES)
+            #print(ERRORES_FINALES)
             if np.all(ERRORES_FINALES>0):
                 cv.putText(procesamiento_l, "DENTRO DEL AREA", (0,430), font, 1, (255,255,255),1,cv.LINE_AA)
                 for i in range(0,ubicacion.shape[0]):
@@ -199,24 +204,18 @@ class VideoStreamWidget(object):
                         cv.putText(procesamiento_l, "ERROR LATERAL SALIDA EN "+str(i), (0,490), font, 1, (255,255,255),1,cv.LINE_AA)
             else:
                 cv.putText(procesamiento_l, "FUERA DEL AREA", (0,460), font, 1, (255,255,255),1,cv.LINE_AA)
-            
-            #if(err_x_linea1>3 and err_y_linea1>3 and err_x_linea2>3 and err_y_linea2>3):
-                #print(err_x_linea2)
-                #cv.putText(procesamiento_l, "DENTRO DEL AREA", (0,430), font, 1, (255,255,255),1,cv.LINE_AA)
-                #if(err_x_linea2<=25):
-                    #cv.putText(procesamiento_l, "ERROR FRONTAL EN "+str(i), (0,460), font, 1, (255,255,255),1,cv.LINE_AA)
-                #if(err_y_linea1<=33):
-                    #cv.putText(procesamiento_l, "ERROR LATERAL EN "+str(i), (0,490), font, 1, (255,255,255),1,cv.LINE_AA)
-            #else:
-                #cv.putText(procesamiento_l, "FUERA DEL AREA", (0,460), font, 1, (255,255,255),1,cv.LINE_AA)      
-        ##muestra de datos de las camaras
+
         ERRORES_FINALES=np.zeros((ubicacion.shape[0],4))
         cv.imshow('left_1',procesamiento_l)
         key = cv.waitKey(1)
         if key == ord('q'):
             self.capture.release()
             cv.destroyAllWindows()
+            fps.stop()
+            print("[INFO] elasped time: {:.2f}".format(fps.elapsed()))
+            print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
             exit(1)
+        fps.update()
 
 if __name__ == '__main__':
     video_stream_widget = VideoStreamWidget()
